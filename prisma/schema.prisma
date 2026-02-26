@@ -1,0 +1,52 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  password  String
+  fullName  String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  subjects  Subject[]
+  tasks     Task[]
+}
+
+model Subject {
+  id        String   @id @default(uuid())
+  name      String
+  credits   Int      // Số tín chỉ để tính toán thời gian học hợp lý
+  colorCode String?  // Mã màu để hiển thị trên giao diện PWA
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks     Task[]
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  deadline    DateTime // Quản lý hạn nộp bài
+  priority    Int      @default(2) // 1: High, 2: Medium, 3: Low (Ứng dụng Eisenhower)
+  status      String   @default("TODO") // TODO, IN_PROGRESS, DONE
+  
+  subjectId   String?
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject     Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+}
