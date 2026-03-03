@@ -1,19 +1,32 @@
 const prisma = require("../config/db");
-
+const { calculateAutoPriority } = require("../utils/priority.utils");
 exports.createTask = async (req, res) => {
   try {
-    const { title, description, deadline, priority, subjectId } = req.body;
+    // 1. Chỉ lấy những trường cần thiết từ body, KHÔNG lấy priority vì hệ thống sẽ tự tính
+    const { title, description, deadline, subjectId } = req.body;
+
+    // 2. Tính toán Auto Priority TRƯỚC khi lưu vào Database
+    const autoPriority = calculateAutoPriority(deadline);
+
+    // 3. Tạo công việc vào Database
     const task = await prisma.task.create({
       data: {
         title,
         description,
-        deadline: new Date(deadline),
-        priority,
+        // Kiểm tra an toàn: Có deadline mới parse sang Date, không thì để null
+        deadline: deadline ? new Date(deadline) : null,
+
+        priority: autoPriority, // Gán giá trị đã tính toán tự động vào Database
+
         subjectId,
         userId: req.user.id, // Lấy từ middleware verifyToken
       },
     });
-    res.status(201).json(task);
+
+    res.status(201).json({
+      message: "Tạo công việc thành công",
+      task: task,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -73,5 +86,42 @@ exports.updateTaskStatus = async (req, res, next) => {
     });
   } catch (error) {
     next(error); // Đẩy lỗi về Global Error Handler
+  }
+};
+exports.updateTask = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { title, description, deadline, subjectId } = req.body;
+    const autoPriority = calculateAutoPriority(deadline);
+    const task = await prisma.task.updateMany({
+      where: { id: id, userId: req.user.id },
+      data: {
+        title,
+        description,
+        subjectId,
+        priority: autoPriority,
+        deadline: deadline ? new Date(deadline) : undefined,
+      },
+    });
+
+    if (task.count === 0)
+      return res.status(404).json({ message: "Không tìm thấy công việc" });
+    res.status(200).json({ message: "Cập nhật công việc thành công" });
+  } catch (error) {
+    next(error);
+  }
+};
+exports.deleteTask = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const deletedTask = await prisma.task.deleteMany({
+      where: { id: id, userId: req.user.id },
+    });
+
+    if (deletedTask.count === 0)
+      return res.status(404).json({ message: "Không tìm thấy công việc" });
+    res.status(200).json({ message: "Xóa công việc thành công" });
+  } catch (error) {
+    next(error);
   }
 };

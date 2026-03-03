@@ -3,7 +3,7 @@ require("dotenv").config();
 
 // Import app đã được cấu hình đầy đủ từ thư mục src
 const app = require("./src/app.js");
-
+const startPriorityUpdater = require("./src/cron/priorityUpdater");
 // Xác định Port (Lấy từ .env, nếu không có thì mặc định là 5000)
 const PORT = process.env.PORT || 5000;
 
@@ -11,6 +11,9 @@ const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   console.log(`[🚀 Backend] Server đang chạy tại: http://localhost:${PORT}`);
   console.log(`[📚 Môi trường] ${process.env.NODE_ENV || "development"}`);
+
+  // Bật hệ thống chạy ngầm
+  startPriorityUpdater();
 });
 
 // Xử lý lỗi Unhandled Promise Rejections (Ví dụ: Mất kết nối DB đột ngột)

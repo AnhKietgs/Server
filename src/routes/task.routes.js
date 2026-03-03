@@ -10,4 +10,6 @@ router.post("/", taskController.createTask);
 router.get("/", taskController.getTasks);
 // Bổ sung router.put('/:id', ...) và router.delete('/:id', ...)
 router.patch("/:id/status", taskController.updateTaskStatus);
+router.put("/:id", taskController.updateTask);
+router.delete("/:id", taskController.deleteTask);
 module.exports = router;
