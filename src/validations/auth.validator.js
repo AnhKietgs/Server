@@ -1,6 +1,5 @@
 const { body, validationResult } = require("express-validator");
 
-// Hàm middleware dùng chung để hứng lỗi từ express-validator
 const runValidation = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -19,7 +18,21 @@ const registerValidator = [
     .withMessage("Mật khẩu phải có ít nhất 6 ký tự")
     .matches(/\d/)
     .withMessage("Mật khẩu phải chứa ít nhất 1 chữ số"),
+
+  // BỔ SUNG KIỂM TRA CONFIRM PASSWORD TẠI ĐÂY
+  body("confirmPassword")
+    .notEmpty()
+    .withMessage("Vui lòng nhập lại mật khẩu xác nhận")
+    .custom((value, { req }) => {
+      // Đối chiếu giá trị confirmPassword (value) với password trong req.body
+      if (value !== req.body.password) {
+        throw new Error("Mật khẩu xác nhận không khớp");
+      }
+      return true; // Hợp lệ
+    }),
+
   body("fullName").notEmpty().withMessage("Họ tên không được để trống"),
+
   runValidation,
 ];
 
