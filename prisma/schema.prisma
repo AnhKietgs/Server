@@ -19,12 +19,13 @@ model User {
 
   subjects  Subject[]
   tasks     Task[]
+  sessions  StudySession[]
 }
 
 model Subject {
   id        String   @id @default(uuid())
   name      String
-  credits   Int      // Số tín chỉ để tính toán thời gian học hợp lý
+  weeklyStudyHours Int       @default(4)
   colorCode String?  // Mã màu để hiển thị trên giao diện PWA
   userId    String
   createdAt DateTime @default(now())
@@ -49,4 +50,18 @@ model Task {
 
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   subject     Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  sessions  StudySession[]
+}
+model StudySession {
+  id        String   @id @default(uuid())
+  duration  Int      // Số phút học (Ví dụ: 25 phút của 1 Pomodoro)
+  createdAt DateTime @default(now()) // Ngày giờ thực hiện phiên học này
+
+  // Liên kết với Task
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  // Liên kết với User
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

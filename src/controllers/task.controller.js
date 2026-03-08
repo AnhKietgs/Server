@@ -125,3 +125,89 @@ exports.deleteTask = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.getWeeklyProgress = async (req, res, next) => {
+  try {
+    // 1. Xác định khung thời gian: Đầu tuần (Thứ 2) và Cuối tuần (Chủ nhật)
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 (Chủ nhật) đến 6 (Thứ 7)
+    const distanceToMonday =
+      now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+
+    const startOfWeek = new Date(now.setDate(distanceToMonday));
+    startOfWeek.setHours(0, 0, 0, 0); // 00:00:00 Thứ 2
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999); // 23:59:59 Chủ nhật
+
+    // 2. Query lấy tất cả Task của User CÓ HẠN CHÓT nằm trong tuần này
+    // (Giả sử model Task của bạn có trường dueDate. Nếu bạn dùng tên khác như scheduledDate thì nhớ đổi lại nhé)
+    const tasksThisWeek = await prisma.task.findMany({
+      where: {
+        userId: req.user.id,
+        dueDate: {
+          gte: startOfWeek,
+          lte: endOfWeek,
+        },
+      },
+    });
+
+    // 3. TÍNH TOÁN CÁC CHỈ SỐ
+    const totalTasks = tasksThisWeek.length;
+
+    // Lọc ra các task đã hoàn thành (Giả sử trạng thái là 'DONE')
+    const completedTasksList = tasksThisWeek.filter(
+      (task) => task.status === "DONE",
+    );
+    const completedTasks = completedTasksList.length;
+
+    // A. Tính Tiến độ theo Số lượng Task (Công thức của bạn)
+    // Dùng toán tử ba ngôi để chống lỗi Chia cho 0 (Khi tuần đó không có task nào)
+    const taskProgressPercentage =
+      totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
+
+    // B. Tính Tiến độ theo Thời gian nỗ lực (Time-based Effort)
+    // (Giả sử model Task có trường estimatedMinutes)
+    let totalMinutes = 0;
+    let completedMinutes = 0;
+
+    tasksThisWeek.forEach((task) => {
+      // Nếu task không nhập thời gian, mặc định cho là 30 phút để tránh bị lỗi
+      const taskTime = task.estimatedMinutes || 30;
+      totalMinutes += taskTime;
+
+      if (task.status === "DONE") {
+        completedMinutes += taskTime;
+      }
+    });
+
+    const timeProgressPercentage =
+      totalMinutes === 0
+        ? 0
+        : Math.round((completedMinutes / totalMinutes) * 100);
+
+    // 4. Trả kết quả về cho Frontend
+    res.status(200).json({
+      message: "Lấy tiến độ tuần thành công",
+      data: {
+        weekRange: {
+          start: startOfWeek,
+          end: endOfWeek,
+        },
+        taskStats: {
+          totalTasks,
+          completedTasks,
+          progressPercentage: taskProgressPercentage, // <-- Công thức của bạn
+        },
+        timeStats: {
+          totalMinutes,
+          completedMinutes,
+          progressPercentage: timeProgressPercentage, // <-- Công thức nâng cao
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};

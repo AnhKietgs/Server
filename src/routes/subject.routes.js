@@ -6,8 +6,8 @@ const verifyToken = require("../middlewares/auth.middleware");
 // Mọi thao tác với môn học đều yêu cầu người dùng phải đăng nhập (có token)
 router.use(verifyToken);
 
-router.get("/", subjectController.getSubjects);
-router.post("/", subjectController.createSubject);
-router.put("/:id", subjectController.updateSubject);
+router.get("/getSubject", subjectController.getAllSubjects); //xuat
+router.post("/createSubject", subjectController.createSubject); //nhap
+router.put("/updateSubject/:id", subjectController.updateSubject); //update
 
 module.exports = router;

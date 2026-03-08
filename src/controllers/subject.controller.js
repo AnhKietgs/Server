@@ -1,32 +1,32 @@
 const prisma = require("../config/db");
 
 // Lấy danh sách môn học của sinh viên đang đăng nhập
-exports.getSubjects = async (req, res, next) => {
-  try {
-    const subjects = await prisma.subject.findMany({
-      where: { userId: req.user.id },
-      orderBy: { createdAt: "desc" },
-      // Tùy chọn: include thêm số lượng task đang mở của môn này để hiển thị trên Dashboard
-      include: {
-        _count: {
-          select: { tasks: { where: { status: { not: "DONE" } } } },
-        },
-      },
-    });
-    res.status(200).json(subjects);
-  } catch (error) {
-    next(error); // Đẩy lỗi về Global Error Handler
-  }
-};
+// exports.getSubjects = async (req, res, next) => {
+//   try {
+//     const subjects = await prisma.subject.findMany({
+//       where: { userId: req.user.id },
+//       orderBy: { createdAt: "desc" },
+//       // Tùy chọn: include thêm số lượng task đang mở của môn này để hiển thị trên Dashboard
+//       include: {
+//         _count: {
+//           select: { tasks: { where: { status: { not: "DONE" } } } },
+//         },
+//       },
+//     });
+//     res.status(200).json(subjects);
+//   } catch (error) {
+//     next(error); // Đẩy lỗi về Global Error Handler
+//   }
+// };
 
 // Thêm môn học mới
 exports.createSubject = async (req, res, next) => {
   try {
-    const { name, credits, colorCode } = req.body;
+    const { name, weeklyStudyHours, colorCode } = req.body;
     const newSubject = await prisma.subject.create({
       data: {
         name,
-        credits: parseInt(credits) || 0,
+        weeklyStudyHours: weeklyStudyHours || 4,
         colorCode: colorCode || "#CCCCCC", // Màu mặc định nếu không truyền
         userId: req.user.id,
       },

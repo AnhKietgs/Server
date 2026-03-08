@@ -9,12 +9,15 @@ const {
 } = require("../validations/auth.validator");
 
 // Gắn Validator TRƯỚC khi gọi Controller
-router.post("/register", registerValidator, authController.register);
-router.post("/login", loginValidator, authController.login);
+router.post("/register", registerValidator, authController.register); //dang ky
+
+router.post("/login", loginValidator, authController.login); //dang nhap
+
 router.put(
-  "/change-password",
+  "/forgot-password",
   verifyToken,
   changePasswordValidator,
   authController.changePassword,
-);
+); //quen mat khau
+
 module.exports = router;
