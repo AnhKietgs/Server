@@ -41,5 +41,22 @@ const loginValidator = [
   body("password").notEmpty().withMessage("Vui lòng nhập mật khẩu"),
   runValidation,
 ];
-
-module.exports = { registerValidator, loginValidator };
+const changePasswordValidator = [
+  body("email").trim().isEmail().withMessage("Email không đúng định dạng"),
+  body("newPassword")
+    .isLength({ min: 6 })
+    .withMessage("Mật khẩu mới phải có ít nhất 6 ký tự")
+    .matches(/\d/)
+    .withMessage("Mật khẩu mới phải chứa ít nhất 1 chữ số"),
+  body("confirmNewPassword")
+    .notEmpty()
+    .withMessage("Vui lòng nhập lại mật khẩu xác nhận")
+    .custom((value, { req }) => {
+      if (value !== req.body.newPassword) {
+        throw new Error("Mật khẩu xác nhận không khớp");
+      }
+      return true;
+    }),
+  runValidation,
+];
+module.exports = { registerValidator, loginValidator, changePasswordValidator };
