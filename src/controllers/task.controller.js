@@ -34,13 +34,31 @@ exports.createTask = async (req, res) => {
 
 exports.getTasks = async (req, res) => {
   try {
-    // Chỉ lấy task của user đang đăng nhập, tự động join với bảng Subject
+    // 1. Lấy danh sách task từ DB (Giữ nguyên logic của bạn)
     const tasks = await prisma.task.findMany({
       where: { userId: req.user.id },
       include: { subject: { select: { name: true, colorCode: true } } },
-      orderBy: { deadline: "asc" }, // Ưu tiên task sắp đến hạn
+      orderBy: { deadline: "asc" }, 
     });
-    res.json(tasks);
+
+    // 2. BỘ DỊCH TỪ SỐ SANG CHỮ (Ánh xạ Priority)
+    const priorityMap = {
+      1: "HIGH",
+      2: "MEDIUM",
+      3: "LOW"
+    };
+
+    // 3. Ghi đè lại trường priority trước khi gửi về Frontend
+    const formattedTasks = tasks.map(task => {
+      return {
+        ...task,
+        // Chuyển 1,2,3 thành chữ. Nếu không có thì mặc định là MEDIUM
+        priority: priorityMap[task.priority] || "MEDIUM"
+      };
+    });
+
+    // Trả về danh sách đã được "dịch"
+    res.json(formattedTasks);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
