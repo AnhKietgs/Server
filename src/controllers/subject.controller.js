@@ -19,8 +19,6 @@ const prisma = require("../config/db");
 //   }
 // };
 
-const prisma = require("../config/db");
-
 // 1. LẤY DANH SÁCH MÔN HỌC (Giữ nguyên logic tính toán progress của bạn)
 exports.getAllSubjects = async (req, res, next) => {
   try {
