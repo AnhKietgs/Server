@@ -20,6 +20,7 @@ model User {
   subjects  Subject[]
   tasks     Task[]
   sessions  StudySession[]
+  classSchedules ClassSchedule[]
 }
 
 model Subject {
@@ -33,6 +34,7 @@ model Subject {
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   tasks     Task[]
+  classSchedules ClassSchedule[]
 }
 
 model Task {
@@ -64,4 +66,19 @@ model StudySession {
   // Liên kết với User
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ClassSchedule {
+  id          String   @id @default(uuid())
+  userId      String
+  subjectId   String
+  dayOfWeek   Int      
+  startTime   String   
+  endTime     String   
+  recurrence  String   @default("EVERY_WEEK") 
+  room        String?  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject     Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
