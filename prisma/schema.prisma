@@ -76,7 +76,8 @@ model ClassSchedule {
   startTime   String   
   endTime     String   
   recurrence  String   @default("EVERY_WEEK") 
-  room        String?  
+  room        String? 
+  color       String? 
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   subject     Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())

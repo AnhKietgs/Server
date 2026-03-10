@@ -164,7 +164,7 @@ exports.getWeeklyProgress = async (req, res, next) => {
     const tasksThisWeek = await prisma.task.findMany({
       where: {
         userId: req.user.id,
-        dueDate: {
+        deadline: {
           gte: startOfWeek,
           lte: endOfWeek,
         },

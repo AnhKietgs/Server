@@ -5,7 +5,7 @@ const { getCurrentWeekParity } = require("../utils/date.utils");
 exports.createClassSchedule = async (req, res, next) => {
   try {
     // FE sẽ gửi mảng daysOfWeek (VD: [1, 4] là Thứ 2 và Thứ 5)
-    const { subjectId, daysOfWeek, startTime, endTime, recurrence, room } = req.body;
+    const { subjectId, daysOfWeek, startTime, endTime, recurrence, room, color} = req.body;
 
     // Tạo nhiều dòng lịch học tương ứng với các thứ được chọn
     const schedulesToCreate = daysOfWeek.map(day => ({
@@ -15,7 +15,8 @@ exports.createClassSchedule = async (req, res, next) => {
       startTime,
       endTime,
       recurrence: recurrence || "EVERY_WEEK",
-      room: room || null
+      room: room || null,
+      color: color || null
     }));
 
     const createdSchedules = await prisma.classSchedule.createMany({
@@ -69,7 +70,7 @@ exports.getTodayClasses = async (req, res, next) => {
       return {
         id: cls.id,
         subject: cls.subject.name,
-        color: cls.subject.colorCode,
+        color: cls.color || cls.subject.colorCode, 
         time: `${cls.startTime} - ${cls.endTime}`,
         duration: duration,
         room: cls.room
@@ -96,6 +97,31 @@ exports.getAllClasses = async (req, res, next) => {
       ]
     });
     res.status(200).json(classes);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// XÓA LỊCH HỌC
+exports.deleteSchedule = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Kiểm tra xem lịch có phải của user này không (bảo mật)
+    const existingSchedule = await prisma.classSchedule.findFirst({
+      where: { id: id, userId: req.user.id }
+    });
+
+    if (!existingSchedule) {
+      return res.status(404).json({ message: "Không tìm thấy lịch học này!" });
+    }
+
+    // Xóa lịch
+    await prisma.classSchedule.delete({
+      where: { id: id }
+    });
+
+    res.status(200).json({ message: "Xóa lịch học thành công!" });
   } catch (error) {
     next(error);
   }
