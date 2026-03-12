@@ -10,6 +10,7 @@ const taskRoutes = require("./routes/task.routes");
 const userRoutes = require("./routes/user.routes");
 const studySession = require("./routes/studySession.routes");
 const schedule = require("./routes/schedule.routes");
+const analyticsRoutes = require("./routes/analytics.routes");
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use("/api/v1/tasks", taskRoutes); //Tạo Công việc dựa trên(token) lo
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/studySession", studySession);
 app.use("/api/v1/schedule", schedule);
+app.use("/api/v1/analytics", analyticsRoutes);
 
 // 3. Xử lý đường dẫn không tồn tại (404 Not Found)
 app.use((req, res, next) => {
