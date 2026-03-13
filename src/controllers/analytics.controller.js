@@ -4,7 +4,7 @@ exports.getAnalyticsOverview = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const now = new Date();
-
+    
     // ==========================================
     // 1. TÍNH TOÁN TOP STATS (4 Thẻ trên cùng)
     // ==========================================
@@ -21,13 +21,11 @@ exports.getAnalyticsOverview = async (req, res, next) => {
     const completedTasksCount = await prisma.task.count({
       where: { userId, status: "DONE" },
     });
-    
-    // THÊM DÒNG NÀY ĐỂ ĐẾM SỐ LỊCH HỌC ĐANG CÓ:
+
     const totalClassesCount = await prisma.classSchedule.count({ where: { userId } });
 
     // c. Avg Daily Hours
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    // Tính số ngày từ lúc tạo tài khoản đến nay (ít nhất là 1 ngày để tránh chia cho 0)
     const daysSinceCreation = Math.max(1, Math.ceil((now - user.createdAt) / (1000 * 60 * 60 * 24)));
     const avgDailyHours = (totalHours / daysSinceCreation).toFixed(1);
 
@@ -55,11 +53,10 @@ exports.getAnalyticsOverview = async (req, res, next) => {
     });
     // Làm tròn 1 chữ số
     weeklyStudyData.forEach(d => d.hours = Number(d.hours.toFixed(1)));
-
+    
     // ==========================================
     // 3. SUBJECT DISTRIBUTION (Biểu đồ tròn)
     // ==========================================
-    // Lấy tất cả môn học và đếm số task của từng môn
     const subjectsWithTaskCount = await prisma.subject.findMany({
       where: { userId },
       include: {
@@ -75,12 +72,12 @@ exports.getAnalyticsOverview = async (req, res, next) => {
       const percentage = totalTasksWithSubject === 0 ? 0 : Math.round((count / totalTasksWithSubject) * 100);
       return {
         name: sub.name,
-        value: percentage, // Recharts PieChart dùng trường value
-        color: sub.colorCode || '#2563EB', // Lấy màu mặc định nếu môn không có màu
+        value: percentage, 
+        color: sub.colorCode || '#2563EB', 
         taskCount: count
       };
-    }).filter(sub => sub.taskCount > 0); // Chỉ lấy những môn có task
-
+    }).filter(sub => sub.taskCount > 0); 
+    
     // ==========================================
     // 4. TASK COMPLETION TREND (6 tháng gần nhất)
     // ==========================================
@@ -89,18 +86,16 @@ exports.getAnalyticsOverview = async (req, res, next) => {
     sixMonthsAgo.setMonth(now.getMonth() - 5);
     sixMonthsAgo.setDate(1);
     sixMonthsAgo.setHours(0,0,0,0);
-
-    // Lấy task 6 tháng qua
+    
     const recentTasks = await prisma.task.findMany({
       where: { userId, createdAt: { gte: sixMonthsAgo } }
     });
 
-    // Tạo khung 6 tháng
     for(let i = 5; i >= 0; i--) {
       const d = new Date();
       d.setMonth(now.getMonth() - i);
       taskCompletionData.push({
-        month: d.toLocaleString('en-US', { month: 'short' }), // Jan, Feb...
+        month: d.toLocaleString('en-US', { month: 'short' }), 
         monthNum: d.getMonth(),
         year: d.getFullYear(),
         completed: 0,
@@ -108,7 +103,6 @@ exports.getAnalyticsOverview = async (req, res, next) => {
       });
     }
 
-    // Lấp data vào khung
     recentTasks.forEach(task => {
       const taskMonth = task.createdAt.getMonth();
       const taskYear = task.createdAt.getFullYear();
@@ -121,8 +115,63 @@ exports.getAnalyticsOverview = async (req, res, next) => {
     });
 
     // ==========================================
-    // 5. TRẢ VỀ CHO FRONTEND
+    // 4.5. TÍNH TOÁN TRẠNG THÁI HUY HIỆU (ACHIEVEMENTS)
     // ==========================================
+    
+    // Lấy thời gian của tất cả các phiên học (chỉ lấy cột createdAt cho nhẹ)
+    const allSessions = await prisma.studySession.findMany({
+      where: { userId },
+      select: { createdAt: true },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    // Kiểm tra Early Bird: Có phiên học nào bắt đầu trong khoảng 4:00 AM đến 7:59 AM không?
+    const isEarlyBird = allSessions.some(session => {
+      const hour = session.createdAt.getHours();
+      return hour >= 4 && hour < 8;
+    });
+
+    // Kiểm tra 7-Day Streak: Lọc ra các ngày duy nhất có học, đưa về timestamp để tính toán
+    const uniqueStudyDates = [...new Set(allSessions.map(session => {
+      const d = new Date(session.createdAt);
+      d.setHours(0, 0, 0, 0); // Đưa về 0h sáng để tránh bị lệch giờ
+      return d.getTime();
+    }))].sort((a, b) => a - b);
+
+    let isSevenDayStreak = false;
+    let currentStreak = 1;
+    
+    if (uniqueStudyDates.length >= 7) {
+      for (let i = 1; i < uniqueStudyDates.length; i++) {
+        // Tính khoảng cách giữa 2 ngày (1 ngày = 86,400,000 milliseconds)
+        const diffInDays = (uniqueStudyDates[i] - uniqueStudyDates[i - 1]) / (1000 * 60 * 60 * 24);
+        
+        if (diffInDays === 1) {
+          currentStreak++;
+          if (currentStreak >= 7) {
+            isSevenDayStreak = true;
+            break;
+          }
+        } else if (diffInDays > 1) {
+          currentStreak = 1; // Nếu cách hơn 1 ngày -> Mất chuỗi, reset lại từ 1
+        }
+      }
+    }
+
+    // Gói tất cả kết quả lại thành 1 object
+    const achievements = {
+      taskMaster: completedTasksCount >= 100,  
+      bookworm: parseFloat(totalHours) >= 50, 
+      earlyBird: isEarlyBird,                
+      sevenDayStreak: isSevenDayStreak        
+    };
+    const recentSessions = await prisma.studySession.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 5
+    });
+
+    // 5. TRẢ VỀ CHO FRONTEND
     res.status(200).json({
       message: "Lấy dữ liệu Analytics thành công",
       data: {
@@ -135,7 +184,9 @@ exports.getAnalyticsOverview = async (req, res, next) => {
         },
         weeklyStudyData,
         subjectDistribution,
-        taskCompletionData
+        taskCompletionData,
+        achievements,
+        recentSessions
       }
     });
 
