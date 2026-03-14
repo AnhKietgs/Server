@@ -107,3 +107,33 @@ exports.updateSubject = async (req, res, next) => {
     next(error);
   }
 };
+
+// 4. XÓA MÔN HỌC
+exports.deleteSubject = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Dùng deleteMany để kết hợp điều kiện: Chỉ xóa môn học CỦA ĐÚNG USER ĐÓ
+    const deletedSubject = await prisma.subject.deleteMany({
+      where: { 
+        id: id, 
+        userId: req.user.id 
+      },
+    });
+
+    // Nếu count === 0 nghĩa là ID không tồn tại hoặc user đang cố xóa môn của người khác
+    if (deletedSubject.count === 0) {
+      return res.status(404).json({ 
+        message: "Không tìm thấy môn học hoặc bạn không có quyền xóa" 
+      });
+    }
+
+    res.status(200).json({ 
+      success: true,
+      message: "Xóa môn học thành công" 
+    });
+  } catch (error) {
+    console.error("Lỗi khi xóa môn học:", error);
+    next(error);
+  }
+};
