@@ -32,6 +32,7 @@ exports.saveStudySession = async (req, res, next) => {
     next(error);
   }
 };
+
 // Lấy dữ liệu vẽ biểu đồ thời gian học trong tuần hiện tại
 exports.getWeeklyChartData = async (req, res, next) => {
   try {
@@ -90,6 +91,39 @@ exports.getWeeklyChartData = async (req, res, next) => {
     res.status(200).json({
       message: "Lấy dữ liệu biểu đồ thành công",
       data: finalChartData,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// LẤY TỔNG SỐ GIỜ ĐÃ HỌC (Dùng cho thẻ Total Study Time trên Analytics)
+exports.getTotalStudyTime = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    // Dùng aggregate của Prisma để tính TỔNG (_sum) cột duration
+    const result = await prisma.studySession.aggregate({
+      where: { 
+        userId: userId 
+      },
+      _sum: {
+        duration: true // Cột lưu số phút trong bảng StudySession của bạn
+      }
+    });
+
+    // Lấy ra tổng số phút (nếu user chưa học phút nào thì trả về 0)
+    const totalMinutes = result._sum.duration || 0;
+
+    // Quy đổi ra giờ (chia 60) và làm tròn 1 chữ số thập phân (VD: 142.5)
+    const totalHours = (totalMinutes / 60).toFixed(1);
+
+    res.status(200).json({
+      message: "Lấy tổng thời gian học thành công",
+      data: {
+        totalMinutes: totalMinutes,
+        totalHours: parseFloat(totalHours) // Ép kiểu về số thực cho an toàn
+      }
     });
   } catch (error) {
     next(error);

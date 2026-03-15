@@ -9,5 +9,6 @@ router.use(verifyToken);
 router.get("/getSubject", subjectController.getAllSubjects); //xuat
 router.post("/createSubject", subjectController.createSubject); //nhap
 router.put("/updateSubject/:id", subjectController.updateSubject); //update
+router.delete("/deleteSubject/:id", subjectController.deleteSubject); //xoa
 
 module.exports = router;

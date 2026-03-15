@@ -19,87 +19,28 @@ const prisma = require("../config/db");
 //   }
 // };
 
-// Thêm môn học mới
-exports.createSubject = async (req, res, next) => {
-  try {
-    const { name, weeklyStudyHours, colorCode } = req.body;
-    const newSubject = await prisma.subject.create({
-      data: {
-        name,
-        weeklyStudyHours: weeklyStudyHours || 4,
-        colorCode: colorCode || "#CCCCCC", // Màu mặc định nếu không truyền
-        userId: req.user.id,
-      },
-    });
-    res.status(201).json(newSubject);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Cập nhật môn học
-exports.updateSubject = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { name, credits, colorCode } = req.body;
-
-    // Đảm bảo user chỉ sửa được môn học của chính họ
-    const subject = await prisma.subject.updateMany({
-      where: { id: id, userId: req.user.id },
-      data: { name, credits, colorCode },
-    });
-
-    if (subject.count === 0) {
-      return res.status(404).json({
-        message: "Không tìm thấy môn học hoặc không có quyền truy cập",
-      });
-    }
-
-    res.status(200).json({ message: "Cập nhật thành công" });
-  } catch (error) {
-    next(error);
-  }
-};
+// 1. LẤY DANH SÁCH MÔN HỌC (Giữ nguyên logic tính toán progress của bạn)
 exports.getAllSubjects = async (req, res, next) => {
   try {
-    // 1. Lấy tất cả môn học của user đang đăng nhập,
-    // ĐỒNG THỜI lấy kèm (include) trạng thái các task thuộc môn đó
     const subjects = await prisma.subject.findMany({
-      where: {
-        userId: req.user.id,
-      },
+      where: { userId: req.user.id },
       include: {
-        tasks: {
-          select: { status: true }, // Chỉ lấy trường status để tính toán, giúp API chạy nhanh hơn
-        },
+        tasks: { select: { status: true } },
       },
     });
 
-    // 2. Tính toán phần trăm hoàn thành cho từng môn học
     const subjectsWithProgress = subjects.map((subject) => {
-      // Đếm tổng số lượng task trong môn học
       const totalTasks = subject.tasks.length;
+      const completedTasks = subject.tasks.filter((task) => task.status === "DONE").length;
+      const progressPercentage = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
 
-      // Đếm số lượng task ĐÃ HOÀN THÀNH (VD: status là 'DONE')
-      const completedTasks = subject.tasks.filter(
-        (task) => task.status === "DONE",
-      ).length;
-
-      // Tính phần trăm: (Số task hoàn thành / Tổng số task) * 100
-      // Dùng Math.round để làm tròn số (VD: 85.5% -> 86%)
-      // Xử lý Edge Case: Nếu môn học chưa có task nào (totalTasks === 0), mặc định trả về 0 để tránh lỗi NaN (Not a Number)
-      const progressPercentage =
-        totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
-
-      // Loại bỏ mảng tasks ra khỏi kết quả trả về để data gọn nhẹ hơn
       const { tasks, ...subjectData } = subject;
 
-      // Trả về object môn học có kèm theo các chỉ số mới
       return {
         ...subjectData,
         totalTasks: totalTasks,
         completedTasks: completedTasks,
-        progress: progressPercentage, // Biến này Frontend dùng để vẽ thanh hiển thị
+        progress: progressPercentage, 
       };
     });
 
@@ -109,6 +50,90 @@ exports.getAllSubjects = async (req, res, next) => {
       data: subjectsWithProgress,
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+// 2. THÊM MÔN HỌC MỚI (Đã sửa để khớp với FE)
+exports.createSubject = async (req, res, next) => {
+  try {
+    // FE gửi lên: { name, target, icon, color }
+    const { name, target, icon, color } = req.body;
+
+    const newSubject = await prisma.subject.create({
+      data: {
+        name: name,
+        // Chuyển đổi tên trường để khớp với Schema: weeklyStudyHours và colorCode
+        weeklyStudyHours: parseInt(target) || 4, 
+        colorCode: color || "#CCCCCC",
+        userId: req.user.id,
+        // Lưu ý: Nếu trong Schema chưa có trường 'icon', hãy tạm thời comment dòng dưới lại
+        // icon: icon || "📚" 
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      data: newSubject
+    });
+  } catch (error) {
+    // In lỗi ra terminal để bạn dễ theo dõi nếu vẫn còn lỗi database
+    console.error("Prisma Error:", error);
+    next(error);
+  }
+};
+
+// 3. CẬP NHẬT MÔN HỌC
+exports.updateSubject = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, target, color } = req.body;
+
+    const subject = await prisma.subject.updateMany({
+      where: { id: id, userId: req.user.id },
+      data: { 
+        name: name,
+        weeklyStudyHours: parseInt(target),
+        colorCode: color
+      },
+    });
+
+    if (subject.count === 0) {
+      return res.status(404).json({ message: "Không tìm thấy môn học" });
+    }
+
+    res.status(200).json({ message: "Cập nhật thành công" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 4. XÓA MÔN HỌC
+exports.deleteSubject = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Dùng deleteMany để kết hợp điều kiện: Chỉ xóa môn học CỦA ĐÚNG USER ĐÓ
+    const deletedSubject = await prisma.subject.deleteMany({
+      where: { 
+        id: id, 
+        userId: req.user.id 
+      },
+    });
+
+    // Nếu count === 0 nghĩa là ID không tồn tại hoặc user đang cố xóa môn của người khác
+    if (deletedSubject.count === 0) {
+      return res.status(404).json({ 
+        message: "Không tìm thấy môn học hoặc bạn không có quyền xóa" 
+      });
+    }
+
+    res.status(200).json({ 
+      success: true,
+      message: "Xóa môn học thành công" 
+    });
+  } catch (error) {
+    console.error("Lỗi khi xóa môn học:", error);
     next(error);
   }
 };
